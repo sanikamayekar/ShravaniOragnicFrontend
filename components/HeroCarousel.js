@@ -3,8 +3,16 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import { Button } from "@/components/ui/button";
 
-// Static slides data
+// Static slides data 
 const slides = [
   { 
     id: 1, 
@@ -41,86 +49,145 @@ const slides = [
 
 export default function HeroCarousel() {
   const [current, setCurrent] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [api, setApi] = useState();
 
-  // Auto-advance every 5s
+  // Auto-advance every 5s (with pause on hover)
   useEffect(() => {
+    if (isPaused || !api) return;
+    
     const interval = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % slides.length);
+      const nextIndex = (current + 1) % slides.length;
+      setCurrent(nextIndex);
+      api.scrollTo(nextIndex, false);
     }, 5000);
+    
     return () => clearInterval(interval);
-  }, []);
+  }, [isPaused, current, api]);
 
-  // Handlers for arrows
-  const prevSlide = () => setCurrent((current - 1 + slides.length) % slides.length);
-  const nextSlide = () => setCurrent((current + 1) % slides.length);
+  // Listen to shadcn carousel changes (only for manual interactions)
+  useEffect(() => {
+    if (!api) return;
+
+    const onSelect = () => {
+      const selected = api.selectedScrollSnap();
+      if (selected !== current) {
+        setCurrent(selected);
+      }
+    };
+
+    api.on("select", onSelect);
+    return () => api.off("select", onSelect);
+  }, [api, current]);
+
+  // Handlers for arrows 
+  const prevSlide = () => {
+    const newIndex = (current - 1 + slides.length) % slides.length;
+    setCurrent(newIndex);
+    if (api) api.scrollTo(newIndex, false);
+  };
+  
+  const nextSlide = () => {
+    const newIndex = (current + 1) % slides.length;
+    setCurrent(newIndex);
+    if (api) api.scrollTo(newIndex, false);
+  };
+
+  // Handle dot clicks
+  const goToSlide = (index) => {
+    setCurrent(index);
+    if (api) api.scrollTo(index, false);
+  };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={slides[current].id}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
-          className="absolute inset-0"
+    <div 
+      className="relative w-full h-screen overflow-hidden"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      <Carousel 
+        setApi={setApi}
+        className="w-full h-full"
+        opts={{
+          align: "start",
+          loop: true,
+        }}
+      >
+        <CarouselContent className="h-screen -ml-0">
+          {slides.map((slide, index) => (
+            <CarouselItem key={slide.id} className="pl-0 h-screen min-w-full">
+              <div className="relative h-full w-full">
+                <Image
+                  src={slide.src}
+                  alt={slide.alt}
+                  fill
+                  priority
+                  className="object-cover"
+                />
+                <AnimatePresence mode="wait">
+                  {index === current && (
+                    <motion.div
+                      key={slide.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="absolute inset-0 flex flex-col justify-center items-center text-center bg-black/40"
+                    >
+                      <div className="mx-6 md:mx-32 px-4">
+                        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-playfair font-bold text-white mb-6 drop-shadow-lg leading-tight max-w-6xl">
+                          {slide.title}
+                        </h1>
+                        {slide.subtitle && (
+                          <p className="text-lg sm:text-xl md:text-2xl text-white mb-6 drop-shadow-lg max-w-2xl font-semibold">
+                            {slide.subtitle}
+                          </p>
+                        )}
+                        <a 
+                          href={slide.buttonLink}
+                          className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 md:py-4 md:px-8 rounded shadow-lg text-base md:text-lg transition-all duration-200 hover:scale-105"
+                        >
+                          {slide.buttonText}
+                        </a>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+
+        <button
+          className="absolute top-1/2 left-4 md:left-8 transform -translate-y-1/2 bg-white/90 backdrop-blur-sm text-gray-800 p-4 rounded-lg shadow-lg hover:bg-white hover:shadow-xl z-20 transition-all duration-300 hover:scale-110 border border-gray-200"
+          onClick={prevSlide}
+          aria-label="Previous Slide"
         >
-          <Image
-            src={slides[current].src}
-            alt={slides[current].alt}
-            fill
-            priority
-            className="object-cover"
-          />
-          <div className="absolute inset-0 flex flex-col justify-center items-center text-center bg-black/40">
-            <div className="mx-6 md:mx-32 px-4">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-playfair font-bold text-white mb-6 drop-shadow-lg leading-tight max-w-6xl">
-                {slides[current].title}
-              </h1>
-              {slides[current].subtitle && (
-                <p className="text-lg sm:text-xl md:text-2xl text-white mb-6 drop-shadow-lg max-w-2xl font-semibold">
-                  {slides[current].subtitle}
-                </p>
-              )}
-              <button className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 md:py-4 md:px-8 rounded shadow-lg text-base md:text-lg transition-all duration-200 hover:scale-105">
-                {slides[current].buttonText}
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      </AnimatePresence>
+          <FaChevronLeft size={18} />
+        </button>
 
-      {/* Left Arrow */}
-      <button
-        className="absolute top-1/2 left-4 md:left-6 transform -translate-y-1/2 bg-black/50 text-white p-3 rounded-full hover:bg-black/70 z-10 transition-all duration-200 hover:scale-110"
-        onClick={prevSlide}
-        aria-label="Previous Slide"
-      >
-        <FaChevronLeft size={20} />
-      </button>
+        <button
+          className="absolute top-1/2 right-4 md:right-8 transform -translate-y-1/2 bg-white/90 backdrop-blur-sm text-gray-800 p-4 rounded-lg shadow-lg hover:bg-white hover:shadow-xl z-20 transition-all duration-300 hover:scale-110 border border-gray-200"
+          onClick={nextSlide}
+          aria-label="Next Slide"
+        >
+          <FaChevronRight size={18} />
+        </button>
 
-      {/* Right Arrow */}
-      <button
-        className="absolute top-1/2 right-4 md:right-6 transform -translate-y-1/2 bg-black/50 text-white p-3 rounded-full hover:bg-black/70 z-10 transition-all duration-200 hover:scale-110"
-        onClick={nextSlide}
-        aria-label="Next Slide"
-      >
-        <FaChevronRight size={20} />
-      </button>
-
-      {/* Dots */}
-      <div className="absolute bottom-6 md:bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3 z-10">
-        {slides.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => setCurrent(idx)}
-            className={`w-3 h-3 rounded-full transition-all duration-200 ${
-              idx === current ? "bg-white scale-125" : "bg-gray-400 hover:bg-gray-300"
-            }`}
-            aria-label={`Go to slide ${idx + 1}`}
-          />
-        ))}
-      </div>
+        {/* Custom Dots */}
+        <div className="absolute bottom-6 md:bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3 z-20">
+          {slides.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => goToSlide(idx)}
+              className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                idx === current ? "bg-white scale-125" : "bg-gray-400 hover:bg-gray-300"
+              }`}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      </Carousel>
     </div>
   );
 }
